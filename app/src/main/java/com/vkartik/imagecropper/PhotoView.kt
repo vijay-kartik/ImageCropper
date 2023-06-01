@@ -2,7 +2,6 @@ package com.vkartik.imagecropper
 
 import android.content.Context
 import android.graphics.Matrix
-import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.util.AttributeSet
