@@ -5,6 +5,7 @@ import android.graphics.Matrix
 import android.graphics.Matrix.ScaleToFit
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
+import android.util.Log
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.MotionEvent
@@ -47,7 +48,6 @@ class PhotoViewAttacher(private val mImageView: ImageView) : OnTouchListener,
     private val mMatrixValues = FloatArray(9)
 
     // Listeners
-    private var mMatrixChangeListener: OnMatrixChangedListener? = null
     private var mCurrentFlingRunnable: FlingRunnable? = null
     private var mHorizontalScrollEdge = HORIZONTAL_EDGE_BOTH
     private var mVerticalScrollEdge = VERTICAL_EDGE_BOTH
@@ -196,6 +196,7 @@ class PhotoViewAttacher(private val mImageView: ImageView) : OnTouchListener,
         get() = mScaleType
         set(scaleType) {
             if (Util.isSupportedScaleType(scaleType) && scaleType != mScaleType) {
+                Log.e("pvattach", "scale type $scaleType")
                 mScaleType = scaleType
                 update()
             }
@@ -350,13 +351,6 @@ class PhotoViewAttacher(private val mImageView: ImageView) : OnTouchListener,
 
     private fun setImageViewMatrix(matrix: Matrix) {
         mImageView.imageMatrix = matrix
-        // Call MatrixChangedListener if needed
-        if (mMatrixChangeListener != null) {
-            val displayRect = getDisplayRect(matrix)
-            if (displayRect != null) {
-                mMatrixChangeListener?.onMatrixChanged(displayRect)
-            }
-        }
     }
 
     /**
@@ -377,7 +371,7 @@ class PhotoViewAttacher(private val mImageView: ImageView) : OnTouchListener,
     private fun getDisplayRect(matrix: Matrix): RectF? {
         val d = mImageView.drawable
         if (d != null) {
-            mDisplayRect[0f, 0f, d.intrinsicWidth.toFloat()] = d.intrinsicHeight.toFloat()
+            mDisplayRect.set(0f, 0f, d.intrinsicWidth.toFloat(), d.intrinsicHeight.toFloat())
             matrix.mapRect(mDisplayRect)
             return mDisplayRect
         }
@@ -516,8 +510,8 @@ class PhotoViewAttacher(private val mImageView: ImageView) : OnTouchListener,
 
         override fun run() {
             val t = interpolate()
-            val _scale = mZoomStart + t * (mZoomEnd - mZoomStart)
-            val deltaScale: Float = _scale / scale
+            val interpolatedScale = mZoomStart + t * (mZoomEnd - mZoomStart)
+            val deltaScale: Float = interpolatedScale / scale
             onGestureListener.onScale(deltaScale, mFocalX, mFocalY)
             // We haven't hit our target scale yet, so post ourselves again
             if (t < 1f) {
@@ -527,7 +521,7 @@ class PhotoViewAttacher(private val mImageView: ImageView) : OnTouchListener,
 
         private fun interpolate(): Float {
             var t = 1f * (System.currentTimeMillis() - mStartTime) / mZoomDuration
-            t = 1f.coerceAtMost(t)
+            t = t.coerceAtMost(1f)
             t = mInterpolator.getInterpolation(t)
             return t
         }
@@ -557,7 +551,7 @@ class PhotoViewAttacher(private val mImageView: ImageView) : OnTouchListener,
             val maxY: Int
             if (viewWidth < rect.width()) {
                 minX = 0
-                maxX = Math.round(rect.width() - viewWidth)
+                maxX = (rect.width() - viewWidth).roundToInt()
             } else {
                 maxX = startX
                 minX = maxX
